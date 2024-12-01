@@ -43,6 +43,31 @@ const formatDetail = (value: string) => {
   return value.startsWith("var(") ? `${value} → ${resolvedValue}` : resolvedValue;
 };
 
+const getTokenScore = (property: string, tokenName: string): number => {
+  property = property.toLowerCase();
+  tokenName = tokenName.toLowerCase();
+  
+  // Extract property name ("font-size" from "font-size: --")
+  const propertyName = property.split(':')[0].trim();
+  const propertyParts = propertyName.split('-');
+  
+  let score = 0;
+  
+  // Exact match bonus
+  if (tokenName.includes(propertyName.replace('-', ''))) {
+    score += 100;
+  }
+  
+  // Individual word match scoring
+  propertyParts.forEach(part => {
+    if (tokenName.includes(part)) {
+      score += 50;
+    }
+  });
+  
+  return score;
+};
+
 /**
  * Grouped VS Code `CompletionItem`s for Polaris custom properties
  */
@@ -181,13 +206,15 @@ connection.onCompletion((textDocumentPosition: TextDocumentPositionParams): Comp
     matchedCompletionItems = matchedCompletionItems.concat(currentCompletionItems);
   }
 
-  // if there were matches above, send them
-  if (matchedCompletionItems.length > 0) {
-    return matchedCompletionItems;
-  }
-
-  // if there were no matches, send everything
-  return allTokenGroupCompletionItems;
+  // Sort completion items based on relevance to the current property
+  const sortedItems = matchedCompletionItems.length > 0 ? matchedCompletionItems : allTokenGroupCompletionItems;
+  
+  return sortedItems
+    .map(item => ({
+      ...item,
+      sortText: String.fromCharCode(97 + Math.max(999 - getTokenScore(fullLineText, item.label), 0)).padStart(3, 'a')
+    }))
+    .sort((a, b) => a.sortText.localeCompare(b.sortText));
 });
 
 // Make the text document manager listen on the connection
