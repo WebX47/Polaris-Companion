@@ -23,6 +23,7 @@ export function activate(context: ExtensionContext) {
     documentSelector: [
       { scheme: "file", language: "css" },
       { scheme: "file", language: "scss" },
+      { scheme: "file", language: "tailwindcss" },
     ],
     synchronize: {
       fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
