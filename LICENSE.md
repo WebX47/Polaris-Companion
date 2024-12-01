@@ -1,0 +1,1 @@
+This project is licensed under the Polaris License by Shopify Inc.
