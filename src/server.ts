@@ -29,12 +29,12 @@ const tokenGroupCompletionItems = Object.fromEntries(
       }
 
       const getTokenValue = (value: string) => {
-        if (value.startsWith('var(')) {
+        if (value.startsWith("var(")) {
           // Find the referenced token in tokenGroups
           const varName = value.slice(4, -1); // Remove var( and )
           for (const group of Object.values(tokenGroups)) {
             for (const [name, props] of Object.entries(group)) {
-              if (createVarName(name) === varName) {
+              if (isTokenName(name) && createVarName(name) === varName) {
                 return props.value;
               }
             }
@@ -46,14 +46,10 @@ const tokenGroupCompletionItems = Object.fromEntries(
 
       const formatDetail = (value: string) => {
         const resolvedValue = getTokenValue(value);
-        if (resolvedValue.includes('rem') && resolvedValue !== '0rem') {
-          return value.startsWith('var(') 
-            ? `${value} → ${resolvedValue} (${toPx(resolvedValue)})`
-            : `${resolvedValue} (${toPx(resolvedValue)})`;
+        if (resolvedValue.includes("rem") && resolvedValue !== "0rem") {
+          return value.startsWith("var(") ? `${value} → ${resolvedValue} (${toPx(resolvedValue)})` : `${resolvedValue} (${toPx(resolvedValue)})`;
         }
-        return value.startsWith('var(')
-          ? `${value} → ${resolvedValue}`
-          : resolvedValue;
+        return value.startsWith("var(") ? `${value} → ${resolvedValue}` : resolvedValue;
       };
 
       return {
