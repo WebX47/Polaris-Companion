@@ -80,7 +80,7 @@ const tokenGroupCompletionItems = Object.fromEntries(
 
       return {
         label: createVarName(tokenName),
-        insertText: `${createVarName(tokenName)}`,
+        insertText: `var(${createVarName(tokenName)})`,
         detail: formatDetail(tokenProperties.value),
         documentation: tokenProperties.description,
         filterText: createVarName(tokenName),
@@ -162,7 +162,7 @@ connection.onHover(({ textDocument, position }) => {
             return {
               contents: {
                 kind: "markdown",
-                value: [`**${varName}**`, props.description || "", `\`${formatDetail(props.value)}\``].filter(Boolean).join("\n\n"),
+                value: [`**[Polaris] ${varName}**`, props.description || "", `\`${formatDetail(props.value)}\``].filter(Boolean).join("\n\n"),
               },
             };
           }
@@ -190,10 +190,14 @@ connection.onCompletion((textDocumentPosition: TextDocumentPositionParams): Comp
   });
 
   // Only provide completions if we're typing a custom property (starts with --)
-  if (!currentLine.trimEnd().endsWith("--")) {
+  const trimmedLine = currentLine.trimEnd();
+  if (!trimmedLine.includes("--")) {
     return [];
   }
 
+  // Get the partial text after -- to use for filtering
+  const partialText = trimmedLine.split("--").pop() || "";
+  
   const fullLineText = doc.getText({
     start: { line: textDocumentPosition.position.line, character: 0 },
     end: { line: textDocumentPosition.position.line, character: 1000 },
@@ -203,11 +207,20 @@ connection.onCompletion((textDocumentPosition: TextDocumentPositionParams): Comp
     if (!pattern.test(fullLineText)) continue;
 
     const currentCompletionItems = tokenGroupCompletionItems[tokenGroupName as keyof typeof tokenGroupPatterns];
-    matchedCompletionItems = matchedCompletionItems.concat(currentCompletionItems);
+    // Filter items based on partial text if it exists
+    const filteredItems = partialText 
+      ? currentCompletionItems.filter(item => 
+          item.label.toLowerCase().includes(partialText.toLowerCase()))
+      : currentCompletionItems;
+    matchedCompletionItems = matchedCompletionItems.concat(filteredItems);
   }
 
   // Sort completion items based on relevance to the current property
-  const sortedItems = matchedCompletionItems.length > 0 ? matchedCompletionItems : allTokenGroupCompletionItems;
+  const sortedItems = matchedCompletionItems.length > 0 ? matchedCompletionItems : 
+    (partialText 
+      ? allTokenGroupCompletionItems.filter(item => 
+          item.label.toLowerCase().includes(partialText.toLowerCase()))
+      : allTokenGroupCompletionItems);
   
   return sortedItems
     .map(item => ({
