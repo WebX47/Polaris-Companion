@@ -1,7 +1,7 @@
 import type { MetaTheme, MetaTokenGroupShape } from "@shopify/polaris-tokens";
 import { createVarName, metaThemeDefault, isTokenName, toPx } from "@shopify/polaris-tokens";
 import { createConnection, TextDocuments, ProposedFeatures, CompletionItemKind, TextDocumentSyncKind } from "vscode-languageserver/node";
-import type { CompletionItem, TextDocumentPositionParams, InitializeResult } from "vscode-languageserver/node";
+import type { CompletionItem, TextDocumentPositionParams, InitializeResult, Hover } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 
 const excludedTokenGroupNames = [] as const;
@@ -18,6 +18,31 @@ type TokenGroupCompletionItems = {
   [T in TokenGroupName]: CompletionItem[];
 };
 
+// helper function
+const getTokenValue = (value: string) => {
+  if (value.startsWith("var(")) {
+    // Find the referenced token in tokenGroups
+    const varName = value.slice(4, -1); // Remove var( and )
+    for (const group of Object.values(tokenGroups)) {
+      for (const [name, props] of Object.entries(group)) {
+        if (isTokenName(name) && createVarName(name) === varName) {
+          return props.value;
+        }
+      }
+    }
+    return value;
+  }
+  return value;
+};
+
+const formatDetail = (value: string) => {
+  const resolvedValue = getTokenValue(value);
+  if (resolvedValue.includes("rem") && resolvedValue !== "0rem") {
+    return value.startsWith("var(") ? `${value} → ${resolvedValue} (${toPx(resolvedValue)})` : `${resolvedValue} (${toPx(resolvedValue)})`;
+  }
+  return value.startsWith("var(") ? `${value} → ${resolvedValue}` : resolvedValue;
+};
+
 /**
  * Grouped VS Code `CompletionItem`s for Polaris custom properties
  */
@@ -27,30 +52,6 @@ const tokenGroupCompletionItems = Object.fromEntries(
       if (!isTokenName(tokenName)) {
         throw new Error(`Invalid token name: ${tokenName}`);
       }
-
-      const getTokenValue = (value: string) => {
-        if (value.startsWith("var(")) {
-          // Find the referenced token in tokenGroups
-          const varName = value.slice(4, -1); // Remove var( and )
-          for (const group of Object.values(tokenGroups)) {
-            for (const [name, props] of Object.entries(group)) {
-              if (isTokenName(name) && createVarName(name) === varName) {
-                return props.value;
-              }
-            }
-          }
-          return value;
-        }
-        return value;
-      };
-
-      const formatDetail = (value: string) => {
-        const resolvedValue = getTokenValue(value);
-        if (resolvedValue.includes("rem") && resolvedValue !== "0rem") {
-          return value.startsWith("var(") ? `${value} → ${resolvedValue} (${toPx(resolvedValue)})` : `${resolvedValue} (${toPx(resolvedValue)})`;
-        }
-        return value.startsWith("var(") ? `${value} → ${resolvedValue}` : resolvedValue;
-      };
 
       return {
         label: createVarName(tokenName),
@@ -101,10 +102,51 @@ connection.onInitialize(() => {
       completionProvider: {
         triggerCharacters: ["--"],
       },
+      // Add hover support
+      hoverProvider: true,
     },
   };
 
   return result;
+});
+
+// Add hover handler
+connection.onHover(({ textDocument, position }) => {
+  const doc = documents.get(textDocument.uri);
+  if (!doc) return null;
+
+  const text = doc.getText({
+    start: { line: position.line, character: 0 },
+    end: { line: position.line, character: 1000 },
+  });
+
+  // Find any var(--token-name) at the current position
+  const matches = [...text.matchAll(/var\(([^)]+)\)/g)];
+  for (const match of matches) {
+    const varName = match[1].trim(); // Get the variable name including --
+    const startPos = match.index || 0;
+    const endPos = startPos + match[0].length;
+
+    // Check if hover position is within this match
+    const hoverPos = doc.offsetAt(position);
+    if (hoverPos >= startPos && hoverPos <= endPos) {
+      // Find token details
+      for (const group of Object.values(tokenGroups)) {
+        for (const [name, props] of Object.entries(group)) {
+          if (isTokenName(name) && createVarName(name) === varName) {
+            return {
+              contents: {
+                kind: "markdown",
+                value: [`**${varName}**`, props.description || "", `\`${formatDetail(props.value)}\``].filter(Boolean).join("\n\n"),
+              },
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return null;
 });
 
 // This handler provides the list of token completion items.
