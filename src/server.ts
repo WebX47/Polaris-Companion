@@ -1,5 +1,5 @@
 import type { MetaTheme, MetaTokenGroupShape } from "@shopify/polaris-tokens";
-import { createVarName, metaThemeDefault, isTokenName } from "@shopify/polaris-tokens";
+import { createVarName, metaThemeDefault, isTokenName, toPx } from "@shopify/polaris-tokens";
 import { createConnection, TextDocuments, ProposedFeatures, CompletionItemKind, TextDocumentSyncKind } from "vscode-languageserver/node";
 import type { CompletionItem, TextDocumentPositionParams, InitializeResult } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
@@ -28,10 +28,38 @@ const tokenGroupCompletionItems = Object.fromEntries(
         throw new Error(`Invalid token name: ${tokenName}`);
       }
 
+      const getTokenValue = (value: string) => {
+        if (value.startsWith('var(')) {
+          // Find the referenced token in tokenGroups
+          const varName = value.slice(4, -1); // Remove var( and )
+          for (const group of Object.values(tokenGroups)) {
+            for (const [name, props] of Object.entries(group)) {
+              if (createVarName(name) === varName) {
+                return props.value;
+              }
+            }
+          }
+          return value;
+        }
+        return value;
+      };
+
+      const formatDetail = (value: string) => {
+        const resolvedValue = getTokenValue(value);
+        if (resolvedValue.includes('rem') && resolvedValue !== '0rem') {
+          return value.startsWith('var(') 
+            ? `${value} → ${resolvedValue} (${toPx(resolvedValue)})`
+            : `${resolvedValue} (${toPx(resolvedValue)})`;
+        }
+        return value.startsWith('var(')
+          ? `${value} → ${resolvedValue}`
+          : resolvedValue;
+      };
+
       return {
         label: createVarName(tokenName),
         insertText: `${createVarName(tokenName)}`,
-        detail: tokenProperties.value,
+        detail: formatDetail(tokenProperties.value),
         documentation: tokenProperties.description,
         filterText: createVarName(tokenName),
         kind: tokenGroupName === "color" ? CompletionItemKind.Color : CompletionItemKind.Variable,
