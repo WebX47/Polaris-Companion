@@ -14,8 +14,8 @@
     "onLanguage:css",
     "onLanguage:scss",
     "onLanguage:tailwindcss",
-    "onLanguage:javascriptreact",
-    "onLanguage:typescriptreact"
+    "onLanguage:typescriptreact",
+    "onLanguage:javascriptreact"
   ],
   "main": "./out/client.js",
   "contributes": {
