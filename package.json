@@ -13,7 +13,9 @@
   "activationEvents": [
     "onLanguage:css",
     "onLanguage:scss",
-    "onLanguage:tailwindcss"
+    "onLanguage:tailwindcss",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact"
   ],
   "main": "./out/client.js",
   "contributes": {

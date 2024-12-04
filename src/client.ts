@@ -24,6 +24,8 @@ export function activate(context: ExtensionContext) {
       { scheme: "file", language: "css" },
       { scheme: "file", language: "scss" },
       { scheme: "file", language: "tailwindcss" },
+      { scheme: "file", language: "javascriptreact" },
+      { scheme: "file", language: "typescriptreact" },
     ],
     synchronize: {
       fileEvents: workspace.createFileSystemWatcher("**/.clientrc"),
