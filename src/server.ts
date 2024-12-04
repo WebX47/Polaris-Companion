@@ -147,14 +147,17 @@ connection.onHover(({ textDocument, position }) => {
 
   // Find any var(--token-name) at the current position
   const matches = [...text.matchAll(/var\(([^)]+)\)/g)];
+  
+  // Get the character position within the line
+  const charPositionInLine = position.character;
+
   for (const match of matches) {
     const varName = match[1].trim(); // Get the variable name including --
-    const startPos = match.index || 0;
-    const endPos = startPos + match[0].length;
+    const matchStartInLine = match.index || 0;
+    const matchEndInLine = matchStartInLine + match[0].length;
 
     // Check if hover position is within this match
-    const hoverPos = doc.offsetAt(position);
-    if (hoverPos >= startPos && hoverPos <= endPos) {
+    if (charPositionInLine >= matchStartInLine && charPositionInLine <= matchEndInLine) {
       // Find token details
       for (const group of Object.values(tokenGroups)) {
         for (const [name, props] of Object.entries(group)) {
@@ -162,7 +165,7 @@ connection.onHover(({ textDocument, position }) => {
             return {
               contents: {
                 kind: "markdown",
-                value: [`**[Polaris] ${varName}**`, props.description || "", `\`${formatDetail(props.value)}\``].filter(Boolean).join("\n\n"),
+                value: [`**[Polaris] ${name}**`, props.description || "", `\`${formatDetail(props.value)}\``].filter(Boolean).join("\n\n"),
               },
             };
           }
